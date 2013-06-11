@@ -16,6 +16,8 @@
 //- possibility to receive drag an drop from other views
 //- metadata for each node
 //
+
+//Disclaimer: This is an old class which hasn't been updated in many years, and isn't documented in any way. Use at own risk..
 //Eirik Arthur Blekesaune
 
 
