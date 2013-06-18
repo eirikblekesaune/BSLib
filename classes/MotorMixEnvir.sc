@@ -2,8 +2,8 @@ MotorMixEnvir {
 	var mixer;
 	var <buttonTypes;
 	var <envir;
-	var <encoderDeltaRange, <encoderRange;
 	var <syncFunctions;
+	var encoderSpec, encoderDelta;
 
 	*new{
 		^super.new.init();
@@ -22,25 +22,8 @@ MotorMixEnvir {
 			envir.put(\rotSwitch, 0);
 			envir.put(\rotButton, 0);
 		};
-		// encoderDeltaRange = (min: 0.001, max: 0.1) ! 8;
-		// encoderRange = (min: 0.0, max: 1.0) ! 8;
-		// mixer.encoderAction = {|num, value|
-		//     var key, currentValue, delta, min, max;
-		//     var deltaMin, deltaMax;
-		//     key = ("encoder_" ++ num).asSymbol;
-		//     currentValue = envir.at(key);
-		//     deltaMin = encoderDeltaRange.at(\min);
-		//     deltaMax = encoderDeltaRange.at(\max);
-		//     delta = if(value > 64,
-		//         {value.linlin(64, 127, deltaMin, deltaMax)},
-		//         {value.linlin(0, 63, deltaMin, deltaMax.neg)}
-		//     );
-		//     value = currentValue + delta;
-		//     min = encoderRange.at(\min);
-		//     max = encoderRange.at(\max);
-		//     envir.put(key, value.clip(min, max));
-		//     this.changed(key);
-		// };
+		encoderSpec = [0.0, 1.0].asSpec;
+		encoderDelta = [0.01, 0.1].asSpec;
 
 		//Set up sync functions
 		syncFunctions = ();
@@ -60,6 +43,14 @@ MotorMixEnvir {
 				{|mx| mx.setMotorPosition(i, (envir.at(key) * 512).asInteger)}
 			);
 		});
+		//		setEncoderDisplay
+		8.do({|i|
+			var key = ("encoder_" ++ i).asSymbol;
+			syncFunctions.put(key,
+				{|mx| mx.setEncoderDisplay(i, envir.at(key) * 127.0)}
+			);
+		});
+
 	}
 
 	attachMotorMix{arg mixer_;
@@ -67,6 +58,7 @@ MotorMixEnvir {
 		mixer = mixer_;
 		mixer.faderAction_(this.prFaderAction);
 		mixer.buttonAction_(this.prButtonAction);
+		mixer.encoderAction_(this.prEncoderAction);
 		this.refreshMixer;
 	}
 
@@ -74,6 +66,8 @@ MotorMixEnvir {
 		if(mixer.notNil, {
 			mixer.faderAction_(nil);
 			mixer.buttonAction_(nil);
+			mixer.encoderAction_(nil);
+			mixer.clearLCD;
 			mixer = nil;
 		});
 	}
@@ -92,7 +86,7 @@ MotorMixEnvir {
 	}
 
 	at{arg key;
-		envir.at(key);
+		^envir.at(key);
 	}
 
 	//perform sync function for specific key
@@ -108,22 +102,22 @@ MotorMixEnvir {
 		buttonTypes.put(key.asSymbol, type);
 	}
 
-	setEncoderDeltaRange{arg num, minval, maxval;
-		encoderDeltaRange.put(num, (min: minval, max: maxval));
-	}
+	// setEncoderDeltaRange{arg num, minval, maxval;
+	// 	encoderDeltaRange.put(num, (min: minval, max: maxval));
+	// }
 
-	setEncoderRange{arg num, minval, maxval;
-		var key, prevValue, value;
-		key = ("encoder_" ++ num).asSymbol;
-		encoderRange.put(num, (min: minval, max: maxval));
-		//clip value
-		prevValue = envir.at(key);
-		value = prevValue.clip(minval, maxval);
-		if(prevValue != value, {
-			envir.put(key, value);
-			this.changed(key);
-		});
-	}
+	// setEncoderRange{arg num, minval, maxval;
+	// 	var key, prevValue, value;
+	// 	key = ("encoder_" ++ num).asSymbol;
+	// 	encoderRange.put(num, (min: minval, max: maxval));
+	// 	//clip value
+	// 	prevValue = envir.at(key);
+	// 	value = prevValue.clip(minval, maxval);
+	// 	if(prevValue != value, {
+	// 		envir.put(key, value);
+	// 		this.changed(key);
+	// 	});
+	// }
 
 	prFaderAction{
 		^{|num, value|
@@ -154,6 +148,23 @@ MotorMixEnvir {
 					this.changed(mixer, key, value);
 				}
 			);
+		};
+	}
+
+	prEncoderAction{
+		^{|num, value|
+			var key, currentValue, delta, min, max;
+			var deltaMin, deltaMax;
+			key = ("encoder_" ++ num).asSymbol;
+			currentValue = envir.at(key);
+			delta = if(value > 64,
+				{value.linlin(64, 127, encoderDelta.minval, encoderDelta.maxval)},
+				{value.linlin(0, 63, encoderDelta.minval.neg, encoderDelta.maxval.neg)}
+			);
+			value = encoderSpec.map(currentValue + delta);
+			this.put(key, value);
+			"Encoder %\n".postf(value);
+			this.changed(key, value);
 		};
 	}
 }
