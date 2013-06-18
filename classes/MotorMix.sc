@@ -192,9 +192,8 @@ MotorMix {
 	setLCDString { arg argstring, startSegment = 0;
 		var result, command;
 		result = [240, 0, 1, 15, 0, 17, 0, 16] ++ startSegment ++ argstring.ascii ++ 247;
-		result = result.flatten.asCompileString;
-		result = "Int8Array" ++ result ++ ";";
-		command = result.interpret;
+		result = result.flatten;
+		command = result.as(Int8Array);
 		this.send(command);
 	}
 
@@ -238,6 +237,8 @@ MotorMix {
 		//["sending:", command].postln;
 		midiOutput.sysex(command);
 	}
+
+
 
 }
 
