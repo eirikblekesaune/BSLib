@@ -3,6 +3,7 @@ MotorMixEnvir {
 	var <buttonTypes;
 	var <envir;
 	var <syncFunctions;
+	var <dispatchFunctions;
 	var encoderSpec, encoderDelta;
 
 	*new{
@@ -12,10 +13,11 @@ MotorMixEnvir {
 	init{
 		envir = ();
 		buttonTypes = ();
+		dispatchFunctions = ();
 		8.do {|i|
 			[\fader, \touch, \lhs, \rhs, \select, \encoder, \mute, \solo, \multi_sw,
 				\burn_sw, \multi, \burn].do({|jtem|
-				var buttonKey = (jtem ++ "_" ++ i).asSymbol;
+				var buttonKey = (jtem ++ "." ++ (i + 1)).asSymbol;
 				envir.put(buttonKey, 0);
 				buttonTypes.put(buttonKey, \toggle);
 			});
@@ -29,7 +31,7 @@ MotorMixEnvir {
 		syncFunctions = ();
 		[\lhs, \rhs, \solo, \mute, \select, \burn_sw, \multi_sw].do({|item|
 			8.do({|j|
-				var key = (item ++ "_" ++ j).asSymbol;
+				var key = (item ++ "." ++ (j + 1)).asSymbol;
 				syncFunctions.put(key,
 					{|mx| //mixer and value are sent as args
 						mx.setLEDState(item, j, envir.at(key));
@@ -38,14 +40,14 @@ MotorMixEnvir {
 			});
 		});
 		8.do({|i|
-			var key = ("fader_" ++ i).asSymbol;
+			var key = ("fader." ++ (i + 1)).asSymbol;
 			syncFunctions.put(key,
 				{|mx| mx.setMotorPosition(i, (envir.at(key) * 512).asInteger)}
 			);
 		});
 		//		setEncoderDisplay
 		8.do({|i|
-			var key = ("encoder_" ++ i).asSymbol;
+			var key = ("encoder." ++ (i + 1)).asSymbol;
 			syncFunctions.put(key,
 				{|mx| mx.setEncoderDisplay(i, envir.at(key) * 127.0)}
 			);
@@ -102,13 +104,22 @@ MotorMixEnvir {
 		buttonTypes.put(key.asSymbol, type);
 	}
 
+	setAction{arg key, func;
+		dispatchFunctions.put(key, func);
+	}
+
+	removeAction{arg key;
+		dispatchFunctions.removeAt;
+		^this;
+	}
+
 	// setEncoderDeltaRange{arg num, minval, maxval;
 	// 	encoderDeltaRange.put(num, (min: minval, max: maxval));
 	// }
 
 	// setEncoderRange{arg num, minval, maxval;
 	// 	var key, prevValue, value;
-	// 	key = ("encoder_" ++ num).asSymbol;
+	// 	key = ("encoder." ++ num).asSymbol;
 	// 	encoderRange.put(num, (min: minval, max: maxval));
 	// 	//clip value
 	// 	prevValue = envir.at(key);
@@ -122,16 +133,17 @@ MotorMixEnvir {
 	prFaderAction{
 		^{|num, value|
 			var key;
-			key = ("fader_" ++ num).asSymbol;
+			key = ("fader." ++ num).asSymbol;
 			envir.put(key, value / 512.0);
 			this.changed(mixer, key, value);
+			dispatchFunctions.at(key).value(this.at(key));
 		}
 	}
 
 	prButtonAction{
 		^{|name, num, value|
 			var key, type;
-			key = (name ++ "_" ++ num).asSymbol;
+			key = (name ++ "." ++ num).asSymbol;
 
 			type = buttonTypes.at(key) ? \toggle;
 			switch(type,
@@ -148,6 +160,7 @@ MotorMixEnvir {
 					this.changed(mixer, key, value);
 				}
 			);
+			dispatchFunctions.at(key).value(this.at(key));
 		};
 	}
 
@@ -155,7 +168,7 @@ MotorMixEnvir {
 		^{|num, value|
 			var key, currentValue, delta, min, max;
 			var deltaMin, deltaMax;
-			key = ("encoder_" ++ num).asSymbol;
+			key = ("encoder." ++ num).asSymbol;
 			currentValue = envir.at(key);
 			delta = if(value > 64,
 				{value.linlin(64, 127, encoderDelta.minval, encoderDelta.maxval)},
@@ -164,6 +177,7 @@ MotorMixEnvir {
 			value = encoderSpec.map(currentValue + delta);
 			this.put(key, value);
 			"Encoder %\n".postf(value);
+			dispatchFunctions.at(key).value(this.at(key));
 			this.changed(key, value);
 		};
 	}

@@ -56,7 +56,7 @@ MotorMix {
 							type = [\touch, \select, \mute, \solo, \multi_sw,
 									\burn_sw].at(button);
                 // [type, stripnum, value, id].postln;
-							buttonAction.value(type, stripnum, value);
+							buttonAction.value(type, stripnum + 1, value);
 							responders.at(\strip).disable;
 							responders.at(\buttonLSB).enable;
 							}, srcID: mmmixID, ccNum: nil, chan: 0).disable,
@@ -65,7 +65,7 @@ MotorMix {
 							buttonnum = val.bitAnd(2r00000111);
 							value = val.bitAnd(2r01000000) >> 6;
                 // [\lhs, buttonnum, value, id].postln;
-							buttonAction.value(\lhs, buttonnum, value);
+							buttonAction.value(\lhs, buttonnum + 1, value);
 							responders.at(\lhs).disable;
 							responders.at(\buttonLSB).enable;
 							}, srcID: mmmixID, ccNum: nil, chan: 0).disable,
@@ -74,7 +74,7 @@ MotorMix {
 							buttonnum = val.bitAnd(2r00000111);
 							value = val.bitAnd(2r01000000) >> 6;
                 // [\rhs, buttonnum, value, id].postln;
-							buttonAction.value(\rhs, buttonnum, value);
+							buttonAction.value(\rhs, buttonnum + 1, value);
 							responders.at(\rhs).disable;
 							responders.at(\buttonLSB).enable;
 							}, srcID: mmmixID, ccNum: nil, chan: 0).disable,
@@ -83,7 +83,7 @@ MotorMix {
 							buttonnum = val.bitAnd(2r00000111);
 							value = val.bitAnd(2r01000000) >> 6;
                 // [\burn, buttonnum, value, id].postln;
-							buttonAction.value(\burn, buttonnum, value);
+							buttonAction.value(\burn, buttonnum + 1, value);
 							responders.at(\burn).disable;
 							responders.at(\buttonLSB).enable;
 							}, srcID: mmmixID, ccNum: nil, chan: 0).disable,
@@ -92,23 +92,23 @@ MotorMix {
 							buttonnum = val.bitAnd(2r00000111);
 							value = val.bitAnd(2r01000000) >> 6;
                 // [\multi, buttonnum, value, id].postln;
-							buttonAction.value(\multi, buttonnum, value);
+							buttonAction.value(\multi, buttonnum + 1, value);
 							responders.at(\multi).disable;
 							responders.at(\buttonLSB).enable;
 							}, srcID: mmmixID, ccNum: nil, chan: 0).disable,
 			\rotaryEncoder ->  MIDIFunc.cc({ |val, num, chan, id|
 							var encodernum;
 							encodernum = num.bitAnd(2r00000111);
-							encoderAction.value(encodernum, val);
+							encoderAction.value(encodernum + 1, val);
                 // [\encoder, encodernum, val, id].postln;
 							}, srcID: mmmixID, ccNum: (64..71), chan: 0),
 			\rotarySwitch -> MIDIFunc.cc({|val, num, chan, id|
                 // [\rotSwitch, val, id].postln;
-							rotarySwitchAction.value(val, num, id);
+							rotarySwitchAction.value(val + 1, num, id);
 							}, srcID: mmmixID, ccNum: 72, chan: 0, argTemplate: [1,65]),
 			\rotaryButton -> MIDIFunc.cc({|val, num, chan, id|
                 // [\rotButton, val, id].postln;
-							rotaryButtonAction.value(val, id);
+							rotaryButtonAction.value(val + 1, id);
 							}, srcID: mmmixID, ccNum: 73, chan: 0, argTemplate: [0,1]),
 			\faderLSB -> MIDIFunc.cc({|val, num, chan, id|
 							faderLSB = nil;
@@ -122,7 +122,7 @@ MotorMix {
 							{
 								fadernum = num.bitAnd(2r00000111);
 								value = (faderLSB << 2) + (val >> 5);
-								faderAction.value(fadernum, value);
+								faderAction.value(fadernum + 1, value);
                     // [\fader, fadernum, value, id].postln;
 							};
 
