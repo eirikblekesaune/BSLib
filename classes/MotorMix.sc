@@ -8,6 +8,7 @@ MotorMix {
 	var <>rotarySwitchAction;
 	var <>rotaryButtonAction;
 	var midiOutput, midiInput;
+	var currentEnvir;
 
 	classvar <buttonLEDs;
 	classvar <stripLEDs;
@@ -149,6 +150,7 @@ MotorMix {
 		var command;
 		type = type.asSymbol;
         value = value.booleanValue.asInteger;
+		index = index - 1;
 		command = case
 			{this.class.buttonLEDs.keys.includes(type)}
 				{
@@ -181,8 +183,8 @@ MotorMix {
 
 	setMotorPosition{arg num, value;
 		var positionLSB, positionMSB, command;
-		value = value.bitAnd(2r111111111);//change to try or if
-		num = num.bitAnd(2r00000111);//change to try or if
+		value = value.asInteger.clip(0, 511).bitAnd(2r111111111);//change to try or if
+		num = (num - 1).bitAnd(2r00000111);//change to try or if
 		positionLSB = (value >> 2).bitAnd(2r01100000);
 		positionMSB = (value >> 2).bitAnd(2r01111111);
 		command = Int8Array[16rB0, num, positionMSB, 16rB0, num + 32, positionLSB];
@@ -211,14 +213,23 @@ MotorMix {
 	setEncoderDisplay{ arg channel, value, type = 0;
 		var result;
 		value = value.asInteger.clip(0, 127);
-		result = Int8Array[240, 0, 1, 15, 0, 17, 0, 17, type, channel, value, 247];
+		result = Int8Array[240, 0, 1, 15, 0, 17, 0, 17, type, channel - 1, value, 247];
 		this.send(result);
 	}
 
 	setSegmentDisplay { arg argstring, dotA = false, dotB = false;
 		var result, outputstring;
 		var msbHiNibble, msbLoNibble, lsbHiNibble, lsbLoNibble;
-		outputstring = argstring.copyRange(0, 2).ascii;//keep only two chars
+
+		"This is arg string stize: %\n".postf(argstring.size);
+		switch(argstring.size,
+			0, {outputstring = "  "},
+			1, {outputstring = " " ++ argstring; },
+			{outputstring = argstring;}
+		);
+		outputstring = outputstring.toUpper;
+		"This is arg string stize after save: %\n".postf(outputstring.size);
+		outputstring = outputstring.copyRange(0, 2).ascii;//keep only two chars
 		msbHiNibble = (outputstring[0] >> 4).bitOr(dotA.asInteger << 6);
 		msbLoNibble = (outputstring[0].bitAnd(0x0F));
 		lsbHiNibble = (outputstring[1] >> 4).bitOr(dotB.asInteger << 6);
@@ -238,8 +249,85 @@ MotorMix {
 		midiOutput.sysex(command);
 	}
 
+	pushEnvir{arg argEnvir;
+		this.popEnvir;
+		currentEnvir = argEnvir;
+		this.faderAction_(this.class.prGetFaderAction(currentEnvir));
+		this.encoderAction_(this.class.prGetEncoderAction(currentEnvir));
+		this.buttonAction_(this.class.prGetButtonAction(currentEnvir));
+		currentEnvir.addDependant(this);
+		currentEnvir.refresh;
+	}
+
+	popEnvir{
+		this.faderAction_(nil);
+		this.encoderAction_(nil);
+		this.buttonAction_(nil);
+		currentEnvir.removeDependant(this);
+	}
+
+	update{arg theChanged, what, args;
+		var type, channel, value;
+		[theChanged, what, args].postln;
+		#type, channel = what.asString.split($.);
+		channel = channel !? {channel.asInteger};
+		value = args;
+		if(theChanged === currentEnvir, {
+			switch(type.asSymbol,
+				\fader, {
+					this.setMotorPosition(channel, value * 512);
+				},
+				\encoder, {
+					this.setEncoderDisplay(channel, value * 128);
+				},
+				\solo, {this.setLEDState(type, channel, value);},
+				\lhs, {this.setLEDState(type, channel, value);},
+				\rhs, {this.setLEDState(type, channel, value);},
+				\select, {this.setLEDState(type, channel, value);},
+				\multi, {this.setLEDState(type, channel, value);},
+				\mute, {this.setLEDState(type, channel, value);},
+				\burn, {this.setLEDState(type, channel, value);},
+				\burn_sw, {this.setLEDState(type, channel, value);},
+				\multi_sw, {this.setLEDState(type, channel, value);},
+				\lcdString, {this.clearLCD; this.setLCDString(args);},
+				\segmentString, {this.setSegmentDisplay(args);}
+			);
+		})
+	}
 
 
+	*prGetFaderAction{arg envir;
+		^{|num, value|
+			var key;
+			key = ("fader." ++ num).asSymbol;
+			envir.put(key, value / 512.0);
+		}
+	}
+
+	*prGetButtonAction{arg envir;
+		^{|name, num, value|
+			var key;
+			key = (name ++ "." ++ num).asSymbol;
+			if(value == 1, {
+				var currentValue = envir.at(key);
+				value = (currentValue + 1) % 2;
+				envir.put(key, value);
+			});
+		};
+	}
+
+	*prGetEncoderAction{arg envir;
+		^{|num, value|
+			var key, currentValue, delta, min, max;
+			var deltaMin = 0.01, deltaMax = 0.1;
+			key = ("encoder." ++ num).asSymbol;
+			currentValue = envir.at(key);
+			delta = if(value > 64,
+				{value.linlin(64, 127, deltaMin, deltaMax)},
+				{value.linlin(0, 63, deltaMin.neg, deltaMax.neg)}
+			);
+			value = [0.0, 1.0].asSpec.map(currentValue + delta);
+			envir.put(key, value);
+		};
+	}
 }
-
-
