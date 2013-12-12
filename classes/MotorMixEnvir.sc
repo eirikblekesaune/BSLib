@@ -28,6 +28,10 @@ MotorMixEnvir {
 		^envir.at(key);
 	}
 
+	keys{
+		^envir.keys;
+	}
+
 	refresh{
 		envir.keysValuesDo({arg key, val;
 			this.changed(key, val);
